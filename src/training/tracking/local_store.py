@@ -97,7 +97,7 @@ class LocalStore:
         step: int,
         timestamp: datetime,
     ) -> None:
-        """Дописать метрики в Parquet файл."""
+        """Дописать метрики в Parquet файл (одна строка = одна метрика)."""
         import pyarrow as pa
         import pyarrow.parquet as pq
 
@@ -105,18 +105,19 @@ class LocalStore:
         parquet_dir.mkdir(parents=True, exist_ok=True)
         parquet_file = parquet_dir / "metrics.parquet"
 
-        # Создаём таблицу для одной записи
-        table = pa.table({
-            "run_id": [run_id],
-            "stage": [stage],
+        # Каждая метрика — отдельная строка
+        rows = {
+            "run_id": [run_id] * len(metrics),
+            "stage": [stage] * len(metrics),
             "metric": list(metrics.keys()),
             "value": list(metrics.values()),
             "step": [step] * len(metrics),
             "timestamp": [timestamp] * len(metrics),
-        })
+        }
+
+        table = pa.table(rows)
 
         if parquet_file.exists():
-            # Читаем существующий и дописываем
             existing = pq.read_table(parquet_file)
             combined = pa.concat_tables([existing, table])
             pq.write_table(combined, parquet_file)
@@ -124,11 +125,12 @@ class LocalStore:
             pq.write_table(table, parquet_file)
 
     def register_run_start(self, run_id: str, recipe: str) -> None:
-        """Зарегистрировать старт run."""
+        """Зарегистрировать старт run (не перезаписывать started_at)."""
         conn = self._get_connection()
+        # Используем INSERT OR IGNORE чтобы не перезаписывать started_at
         conn.execute(
             """
-            INSERT OR REPLACE INTO runs (run_id, recipe, started_at, status)
+            INSERT OR IGNORE INTO runs (run_id, recipe, started_at, status)
             VALUES (?, ?, ?, ?)
             """,
             (run_id, recipe, datetime.now(timezone.utc), "running"),

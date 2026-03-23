@@ -16,7 +16,7 @@ class RecipeRunner:
         results = RunResult(run_id=run_id)
         artifacts: dict[str, ArtifactRef] = {}
 
-        # Создаём логгер на весь run
+        # Один logger на весь run
         logger = ExperimentLogger(experiment=experiment, run_id=run_id)
         logger.start()
 
@@ -26,15 +26,6 @@ class RecipeRunner:
                 output_dir = self._stage_output_dir(experiment, run_id, stage.name)
                 output_dir.mkdir(parents=True, exist_ok=True)
 
-                # Создаём logger для конкретной стадии
-                stage_logger = ExperimentLogger(
-                    experiment=experiment,
-                    run_id=run_id,
-                    stage_name=stage.name,
-                )
-                # Используем тот же local_store, но start() вызываем для стадии
-                stage_logger.start()
-
                 context = StageContext(
                     experiment=experiment,
                     stage_name=stage.name,
@@ -42,7 +33,7 @@ class RecipeRunner:
                     run_id=run_id,
                     output_dir=output_dir,
                     input_artifacts=dict(artifacts),
-                    logger=stage_logger,
+                    logger=logger,  # Передаём один logger на все стадии
                 )
                 result = stage_impl.run(context)
                 results.stages[stage.name] = result
@@ -50,9 +41,8 @@ class RecipeRunner:
                 if result.checkpoint is not None:
                     artifacts["checkpoint"] = result.checkpoint
 
-                # Логирование итогов стадии и завершение
-                logger.log(result.metrics, step=stage_index)
-                stage_logger.finish()
+                # Логирование итогов стадии с указанием имени стадии
+                logger.log(result.metrics, step=stage_index, stage=stage.name)
 
         finally:
             logger.finish()

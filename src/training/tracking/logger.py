@@ -13,17 +13,17 @@ class ExperimentLogger:
     
     W&B — основное хранилище метрик.
     Локальное хранилище — резервная копия и быстрые запросы.
+    
+    Один экземпляр на run. Для стадий используется stage_name в метках.
     """
 
     def __init__(
         self,
         experiment: ResolvedExperiment,
         run_id: str,
-        stage_name: str = "unknown",
     ) -> None:
         self.experiment = experiment
         self.run_id = run_id
-        self.stage_name = stage_name
         self.tracking = experiment.tracking
 
         self._local_store = LocalStore(
@@ -39,7 +39,7 @@ class ExperimentLogger:
             return
 
         # Инициализация локального хранилища
-        self._local_store.init_run(self.run_id, self.stage_name)
+        self._local_store.init_run(self.run_id, "global")
         self._local_store.register_run_start(self.run_id, self.experiment.name)
 
         # Инициализация W&B
@@ -90,6 +90,7 @@ class ExperimentLogger:
         self,
         metrics: dict[str, float],
         step: int | None = None,
+        stage: str | None = None,
     ) -> None:
         """
         Записать метрики в W&B и локально.
@@ -97,14 +98,17 @@ class ExperimentLogger:
         Args:
             metrics: Словарь метрик {name: value}.
             step: Опциональный номер шага.
+            stage: Опциональное имя стадии для локальной записи.
         """
         if not self._started:
             self.start()
 
+        stage_name = stage or "global"
+
         # Локальная запись
         self._local_store.write_metrics(
             run_id=self.run_id,
-            stage=self.stage_name,
+            stage=stage_name,
             metrics=metrics,
             step=step,
         )
@@ -114,7 +118,14 @@ class ExperimentLogger:
             try:
                 import wandb
 
-                wandb.log(metrics, step=step)
+                # Добавляем префикс стадии к метрикам
+                prefixed_metrics = metrics
+                if stage_name != "global":
+                    prefixed_metrics = {
+                        f"{stage_name}/{k}": v for k, v in metrics.items()
+                    }
+
+                wandb.log(prefixed_metrics, step=step)
             except Exception:
                 pass  # Игнорируем ошибки W&B, локально всё записано
 
@@ -124,6 +135,7 @@ class ExperimentLogger:
         name: str,
         artifact_type: str,
         metadata: dict[str, Any] | None = None,
+        stage: str | None = None,
     ) -> None:
         """
         Залогировать артефакт.
@@ -133,11 +145,14 @@ class ExperimentLogger:
             name: Имя артефакта.
             artifact_type: Тип артефакта (например, "model", "data").
             metadata: Дополнительные метаданные.
+            stage: Опциональное имя стадии.
         """
+        stage_name = stage or "global"
+
         # Локальная регистрация
         self._local_store.log_artifact(
             run_id=self.run_id,
-            stage=self.stage_name,
+            stage=stage_name,
             name=name,
             path=path,
             artifact_type=artifact_type,
@@ -160,6 +175,7 @@ class ExperimentLogger:
         path: Path,
         step: int,
         is_best: bool = False,
+        stage: str | None = None,
     ) -> None:
         """
         Залогировать checkpoint модели.
@@ -168,13 +184,16 @@ class ExperimentLogger:
             path: Путь к checkpoint.
             step: Номер шага.
             is_best: Флаг лучшего checkpoint.
+            stage: Опциональное имя стадии.
         """
-        metadata = {"step": step, "is_best": is_best}
+        stage_name = stage or "global"
+        metadata = {"step": step, "is_best": is_best, "stage": stage_name}
         self.log_artifact(
             path=path,
             name=f"checkpoint-{step}",
             artifact_type="model",
             metadata=metadata,
+            stage=stage_name,
         )
 
     def update_config(self, updates: dict[str, Any]) -> None:
