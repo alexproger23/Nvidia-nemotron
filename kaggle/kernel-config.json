@@ -1,0 +1,16 @@
+{
+  "username": "alexproger23",
+  "competition_slug": "nvidia-nemotron-model-reasoning-challenge",
+  "kernel_slug": "nvidia-nemotron-model-reasoning-challenge-baseline",
+  "title": "NVIDIA Nemotron Model Reasoning Challenge Baseline",
+  "code_file": "main.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}
