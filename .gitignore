@@ -1,3 +1,7 @@
+.codex
+.claude
+.qwen
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
