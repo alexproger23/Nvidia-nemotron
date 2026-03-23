@@ -80,17 +80,6 @@ class StageBaseConfig:
 
 
 @dataclass(slots=True)
-class BaselineEvalStageConfig(StageBaseConfig):
-    eval_suite: str = "proxy_reasoning_v1"
-    prompt_profile: str = "reasoning_v1"
-    max_samples: int | None = None
-    reasoning_mode: str | None = None
-    temperature: float = 0.0
-    top_p: float = 1.0
-    max_new_tokens: int = 2048
-
-
-@dataclass(slots=True)
 class SftStageConfig(StageBaseConfig):
     learning_rate: float = 2e-4
     epochs: float = 1.0
@@ -105,14 +94,19 @@ class SftStageConfig(StageBaseConfig):
 
 
 @dataclass(slots=True)
-class FinalEvalStageConfig(StageBaseConfig):
-    eval_suite: str = "final_suite_v1"
-    candidate_source: str = "best_sft"
+class CheckpointEvalStageConfig(StageBaseConfig):
+    checkpoint_source: str = "base_model"
+    eval_suite: str = "proxy_reasoning_v1"
+    prompt_profile: str | None = None
     compare_to: tuple[str, ...] = ()
     max_samples: int | None = None
+    reasoning_mode: str | None = None
+    temperature: float = 0.0
+    top_p: float = 1.0
+    max_new_tokens: int = 2048
 
 
-StageConfig = BaselineEvalStageConfig | SftStageConfig | FinalEvalStageConfig
+StageConfig = CheckpointEvalStageConfig | SftStageConfig
 
 
 @dataclass(slots=True)

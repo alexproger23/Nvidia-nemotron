@@ -14,6 +14,9 @@ class StageRegistry:
     def register(self, stage_name: str, factory: StageFactory) -> None:
         self._factories[stage_name] = factory
 
+    def has(self, stage_name: str) -> bool:
+        return stage_name in self._factories
+
     def create(self, stage_name: str) -> Stage:
         try:
             return self._factories[stage_name]()

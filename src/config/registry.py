@@ -7,10 +7,9 @@ from typing import Any
 from config.errors import ConfigValidationError
 from config.models import (
     AdapterConfig,
-    BaselineEvalStageConfig,
+    CheckpointEvalStageConfig,
     DataProfile,
     DataSourceConfig,
-    FinalEvalStageConfig,
     ModelProfile,
     RunConfig,
     SftStageConfig,
@@ -160,7 +159,24 @@ def parse_tracking_profile(profile_name: str, raw: Mapping[str, Any]) -> Trackin
     )
 
 
-def parse_baseline_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> BaselineEvalStageConfig:
+def parse_baseline_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> CheckpointEvalStageConfig:
+    return parse_checkpoint_eval_stage(
+        stage_name,
+        raw,
+        default_eval_suite="proxy_reasoning_v1",
+        default_prompt_profile="reasoning_v1",
+        default_checkpoint_source="base_model",
+    )
+
+
+def parse_checkpoint_eval_stage(
+    stage_name: str,
+    raw: Mapping[str, Any],
+    *,
+    default_eval_suite: str,
+    default_prompt_profile: str | None,
+    default_checkpoint_source: str,
+) -> CheckpointEvalStageConfig:
     context = f"recipe.stages.{stage_name}"
     reject_unknown_keys(
         raw,
@@ -169,8 +185,10 @@ def parse_baseline_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> Baseli
             "depends_on",
             "tags",
             "notes",
+            "checkpoint_source",
             "eval_suite",
             "prompt_profile",
+            "compare_to",
             "max_samples",
             "reasoning_mode",
             "temperature",
@@ -179,10 +197,12 @@ def parse_baseline_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> Baseli
         },
         context,
     )
-    return BaselineEvalStageConfig(
+    return CheckpointEvalStageConfig(
         **parse_stage_base_fields(raw, context),
-        eval_suite=optional_str(raw, "eval_suite", context) or "proxy_reasoning_v1",
-        prompt_profile=optional_str(raw, "prompt_profile", context) or "reasoning_v1",
+        checkpoint_source=optional_str(raw, "checkpoint_source", context) or default_checkpoint_source,
+        eval_suite=optional_str(raw, "eval_suite", context) or default_eval_suite,
+        prompt_profile=optional_str(raw, "prompt_profile", context) or default_prompt_profile,
+        compare_to=optional_str_list(raw, "compare_to", context),
         max_samples=optional_int(raw, "max_samples", context),
         reasoning_mode=optional_str(raw, "reasoning_mode", context),
         temperature=optional_float(raw, "temperature", context, 0.0),
@@ -228,28 +248,13 @@ def parse_sft_stage(stage_name: str, raw: Mapping[str, Any]) -> SftStageConfig:
     )
 
 
-def parse_final_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> FinalEvalStageConfig:
-    context = f"recipe.stages.{stage_name}"
-    reject_unknown_keys(
+def parse_final_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> CheckpointEvalStageConfig:
+    return parse_checkpoint_eval_stage(
+        stage_name,
         raw,
-        {
-            "enabled",
-            "depends_on",
-            "tags",
-            "notes",
-            "eval_suite",
-            "candidate_source",
-            "compare_to",
-            "max_samples",
-        },
-        context,
-    )
-    return FinalEvalStageConfig(
-        **parse_stage_base_fields(raw, context),
-        eval_suite=optional_str(raw, "eval_suite", context) or "final_suite_v1",
-        candidate_source=optional_str(raw, "candidate_source", context) or "best_sft",
-        compare_to=optional_str_list(raw, "compare_to", context),
-        max_samples=optional_int(raw, "max_samples", context),
+        default_eval_suite="final_suite_v1",
+        default_prompt_profile=None,
+        default_checkpoint_source="best_sft",
     )
 
 

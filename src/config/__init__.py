@@ -1,8 +1,7 @@
 from config.loader import ConfigLoader
 from config.models import (
-    BaselineEvalStageConfig,
+    CheckpointEvalStageConfig,
     DataProfile,
-    FinalEvalStageConfig,
     ModelProfile,
     RecipeConfig,
     ResolvedExperiment,
@@ -14,11 +13,10 @@ from config.models import (
 from config.registry import ConfigRegistry, build_default_registry
 
 __all__ = [
-    "BaselineEvalStageConfig",
+    "CheckpointEvalStageConfig",
     "ConfigLoader",
     "ConfigRegistry",
     "DataProfile",
-    "FinalEvalStageConfig",
     "ModelProfile",
     "RecipeConfig",
     "ResolvedExperiment",

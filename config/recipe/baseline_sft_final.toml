@@ -39,6 +39,6 @@ validation_split = "validation"
 enabled = true
 depends_on = ["sft"]
 eval_suite = "competition_validation_v1"
-candidate_source = "best_sft"
+checkpoint_source = "best_sft"
 compare_to = ["baseline_eval"]
 max_samples = 500

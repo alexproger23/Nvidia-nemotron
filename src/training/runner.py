@@ -12,6 +12,7 @@ class RecipeRunner:
         self.stage_registry = stage_registry or StageRegistry()
 
     def run(self, experiment: ResolvedExperiment, run_id: str) -> RunResult:
+        self._validate_enabled_stages(experiment)
         results = RunResult(run_id=run_id)
         artifacts: dict[str, ArtifactRef] = {}
 
@@ -39,3 +40,15 @@ class RecipeRunner:
         root = Path(experiment.tracking.output_root)
         run_subdir = experiment.recipe.run.output_subdir or experiment.name
         return root / run_subdir / run_id / stage_name
+
+    def _validate_enabled_stages(self, experiment: ResolvedExperiment) -> None:
+        missing = [
+            stage.name
+            for stage in experiment.enabled_stages()
+            if not self.stage_registry.has(stage.name)
+        ]
+        if missing:
+            missing_text = ", ".join(missing)
+            raise NotImplementedError(
+                f"Recipe references stages without registered implementations: {missing_text}"
+            )
