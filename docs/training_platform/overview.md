@@ -75,7 +75,7 @@ docs/
     stage_rl.md
     stage_final_eval_and_export.md
 
-configs/
+config/
   recipe/
   model/
   data/
@@ -86,16 +86,15 @@ configs/
   runtime/
   tracking/
 
-src/nvidia_kaggle/
+src/
+  config/
   training/
-    config_schema/
-    registries/
     stages/
-    runners/
     tracking/
     analytics/
     eval/
     data/
+  competition/
 ```
 
 ## Ближайшая цель

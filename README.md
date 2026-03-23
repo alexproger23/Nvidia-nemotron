@@ -6,7 +6,7 @@
 
 ## Что уже подготовлено
 
-- единая точка входа `python -m nvidia_kaggle.cli`
+- единая точка входа `python -m competition.cli`
 - локальный запуск и запуск на Kaggle через один и тот же код
 - сборка папки `build/kaggle_kernel` для `kaggle kernels push`
 - шаблон конфига `kaggle/kernel-config.json`
@@ -22,9 +22,10 @@
 |   |-- prepare_kaggle_kernel.py
 |   `-- submit_kaggle.ps1
 `-- src/
-    `-- nvidia_kaggle/
-        |-- cli.py
-        `-- pipeline.py
+    |-- competition/
+    |   |-- cli.py
+    |   `-- pipeline.py
+    `-- training/
 ```
 
 ## 1. Настройка Kaggle API
@@ -84,7 +85,7 @@ C:\Users\<ваш_пользователь>\.kaggle\kaggle.json
 
 Основное место для вашей логики:
 
-- `src/nvidia_kaggle/pipeline.py`
+- `src/competition/pipeline.py`
 
 Нужно заменить заглушку в функции `run_inference(...)` на реальный код:
 
@@ -97,7 +98,7 @@ C:\Users\<ваш_пользователь>\.kaggle\kaggle.json
 
 ```powershell
 $env:PYTHONPATH="src"
-python -m nvidia_kaggle.cli --input-dir data\competition --output-file out\submission.csv
+python -m competition.cli --input-dir data\competition --output-file out\submission.csv
 ```
 
 Если `sample_submission.csv` найден, текущая заглушка просто скопирует его в output. Это нужно только чтобы проверить пайплайн до внедрения модели.
@@ -142,7 +143,7 @@ kaggle competitions submit -c <competition-slug> -f submission.csv -m "baseline"
 
 - ищет входные данные в `/kaggle/input/<competition-slug>`
 - пишет результат в `/kaggle/working/submission.csv`
-- использует тот же модуль `src/nvidia_kaggle/pipeline.py`, что и локально
+- использует тот же модуль `src/competition/pipeline.py`, что и локально
 
 Это значит, что локальный и серверный сценарии остаются одинаковыми.
 
