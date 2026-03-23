@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from nvidia_kaggle.pipeline import run_inference
+from competition.pipeline import run_inference
 
 
 def build_parser() -> argparse.ArgumentParser:
