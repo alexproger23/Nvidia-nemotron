@@ -74,6 +74,7 @@ venv.bak/
 # Jupyter Notebook
 .ipynb_checkpoints
 out/
+data/
 
 # pyenv
 .python-version
