@@ -1,8 +1,8 @@
-name = "default_offline"
-mode = "offline"
-project = "nvidia-kaggle"
-entity = ""
-tags = ["bootstrap", "local"]
+name = "default_wandb"
+mode = "online"
+project = "nvidia-nemotron-reasoning"
+entity = "alexproger23"
+tags = ["bootstrap", "v1", "wandb"]
 output_root = "out/runs"
 parquet_root = "out/analytics/parquet"
 duckdb_path = "out/analytics/experiments.duckdb"
