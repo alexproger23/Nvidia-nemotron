@@ -1,0 +1,12 @@
+name = "nemotron_lora_bootstrap"
+base_model = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+tokenizer = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B"
+dtype = "bfloat16"
+max_context_tokens = 8192
+
+[adapter]
+method = "lora"
+rank = 64
+alpha = 128
+dropout = 0.05
+target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]

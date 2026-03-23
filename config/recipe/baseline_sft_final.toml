@@ -1,0 +1,44 @@
+name = "baseline_sft_final"
+description = "Bootstrap recipe for baseline_eval -> sft -> final_eval."
+
+[refs]
+model = "nemotron_lora_bootstrap"
+data = "reasoning_mixture_v1"
+tracking = "default_offline"
+
+[run]
+seed = 42
+output_subdir = "baseline_sft_final"
+tags = ["bootstrap", "v1"]
+notes = "Use this as the initial training-platform skeleton."
+
+[stages.baseline_eval]
+enabled = true
+eval_suite = "proxy_reasoning_v1"
+prompt_profile = "reasoning_v1"
+max_samples = 200
+temperature = 0.0
+top_p = 1.0
+max_new_tokens = 2048
+
+[stages.sft]
+enabled = true
+depends_on = ["baseline_eval"]
+learning_rate = 0.0002
+epochs = 1.0
+per_device_batch_size = 1
+gradient_accumulation_steps = 16
+max_train_samples = 2000
+max_eval_samples = 200
+save_steps = 100
+eval_steps = 100
+train_split = "train"
+validation_split = "validation"
+
+[stages.final_eval]
+enabled = true
+depends_on = ["sft"]
+eval_suite = "competition_validation_v1"
+candidate_source = "best_sft"
+compare_to = ["baseline_eval"]
+max_samples = 500

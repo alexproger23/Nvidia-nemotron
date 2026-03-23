@@ -1,0 +1,9 @@
+name = "default_offline"
+mode = "offline"
+project = "nvidia-kaggle"
+tags = ["bootstrap", "local"]
+output_root = "out/runs"
+parquet_root = "out/analytics/parquet"
+duckdb_path = "out/analytics/experiments.duckdb"
+log_interval_steps = 10
+save_resolved_config = true

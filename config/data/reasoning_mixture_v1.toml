@@ -1,0 +1,23 @@
+name = "reasoning_mixture_v1"
+dataset_format = "chat"
+max_sequence_length = 4096
+packing = true
+shuffle = true
+
+[[train_sources]]
+name = "competition_train"
+path = "data/reasoning/train.jsonl"
+format = "jsonl"
+split = "train"
+weight = 1.0
+prompt_field = "prompt"
+answer_field = "answer"
+
+[[validation_sources]]
+name = "competition_validation"
+path = "data/reasoning/validation.jsonl"
+format = "jsonl"
+split = "validation"
+weight = 1.0
+prompt_field = "prompt"
+answer_field = "answer"
