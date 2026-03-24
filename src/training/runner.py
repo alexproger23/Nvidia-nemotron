@@ -5,6 +5,7 @@ from pathlib import Path
 from config.models import ResolvedExperiment
 from training.contracts import ArtifactRef, RunResult, StageContext
 from training.registry import StageRegistry, build_default_stage_registry
+from training.tracking import ExperimentLogger
 
 
 class RecipeRunner:
@@ -13,26 +14,48 @@ class RecipeRunner:
 
     def run(self, experiment: ResolvedExperiment, run_id: str) -> RunResult:
         self._validate_enabled_stages(experiment)
+
         results = RunResult(run_id=run_id)
         artifacts: dict[str, ArtifactRef] = {}
 
-        for stage in experiment.enabled_stages():
-            stage_impl = self.stage_registry.create(stage.name)
-            output_dir = self._stage_output_dir(experiment, run_id, stage.name)
-            output_dir.mkdir(parents=True, exist_ok=True)
-            context = StageContext(
-                experiment=experiment,
-                stage_name=stage.name,
-                stage_config=stage.config,
-                run_id=run_id,
-                output_dir=output_dir,
-                input_artifacts=dict(artifacts),
-            )
-            result = stage_impl.run(context)
-            results.stages[stage.name] = result
-            artifacts.update(result.artifacts)
-            if result.checkpoint is not None:
-                artifacts["checkpoint"] = result.checkpoint
+        logger = ExperimentLogger(experiment=experiment, run_id=run_id)
+        logger.start()
+
+        try:
+            for stage_index, stage in enumerate(experiment.enabled_stages()):
+                logger._local_store.register_stage_start(
+                    run_id=run_id,
+                    stage_name=stage.name,
+                    stage_index=stage_index,
+                )
+
+                stage_impl = self.stage_registry.create(stage.name)
+                output_dir = self._stage_output_dir(experiment, run_id, stage.name)
+                output_dir.mkdir(parents=True, exist_ok=True)
+
+                context = StageContext(
+                    experiment=experiment,
+                    stage_name=stage.name,
+                    stage_config=stage.config,
+                    run_id=run_id,
+                    output_dir=output_dir,
+                    input_artifacts=dict(artifacts),
+                    logger=logger,
+                )
+                result = stage_impl.run(context)
+                results.stages[stage.name] = result
+                artifacts.update(result.artifacts)
+                if result.checkpoint is not None:
+                    artifacts["checkpoint"] = result.checkpoint
+
+                logger.log(result.metrics, step=stage_index, stage=stage.name)
+                logger._local_store.register_stage_finish(
+                    run_id=run_id,
+                    stage_name=stage.name,
+                    status="completed",
+                )
+        finally:
+            logger.finish()
 
         return results
 
