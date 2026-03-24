@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -32,20 +33,52 @@ class ExperimentLogger:
         )
         self._wandb_initialized = False
         self._started = False
+        self._wandb_url: str | None = None
 
     def start(self) -> None:
         """Инициализировать логгер (start run)."""
         if self._started:
             return
 
-        # Инициализация локального хранилища
+        # Получаем git commit
+        git_commit = self._get_git_commit()
+
+        # Собираем список стадий
+        stages = [s.name for s in self.experiment.enabled_stages()]
+
+        # Теги
+        tags = list(self.tracking.tags) + [self.experiment.name]
+
+        # Инициализация локального хранилища с lineage
         self._local_store.init_run(self.run_id, "global")
-        self._local_store.register_run_start(self.run_id, self.experiment.name)
+        self._local_store.register_run_start(
+            run_id=self.run_id,
+            recipe=self.experiment.name,
+            parent_run_id=self.experiment.recipe.run.parent_run_id,
+            git_commit=git_commit,
+            seed=self.experiment.recipe.run.seed,
+            config_path=str(self.experiment.source_files.get("recipe", "")),
+            stages=stages,
+            tags=tags,
+        )
 
         # Инициализация W&B
         self._init_wandb()
 
         self._started = True
+
+    def _get_git_commit(self) -> str | None:
+        """Получить текущий git commit."""
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return result.stdout.strip()
+        except Exception:
+            return None
 
     def _init_wandb(self) -> None:
         """Инициализировать W&B run."""
@@ -86,6 +119,20 @@ class ExperimentLogger:
 
         self._wandb_initialized = True
 
+        # Сохраняем URL для логирования
+        try:
+            self._wandb_url = wandb.run.get_url()
+        except Exception:
+            pass
+
+        # Обновляем local store с wandb_url
+        if self._wandb_url:
+            self._local_store.register_run_start(
+                run_id=self.run_id,
+                recipe=self.experiment.name,
+                wandb_url=self._wandb_url,
+            )
+
     def log(
         self,
         metrics: dict[str, float],
@@ -107,6 +154,14 @@ class ExperimentLogger:
 
         # Локальная запись
         self._local_store.write_metrics(
+            run_id=self.run_id,
+            stage=stage_name,
+            metrics=metrics,
+            step=step,
+        )
+
+        # Обновление summary
+        self._local_store.update_metrics_summary(
             run_id=self.run_id,
             stage=stage_name,
             metrics=metrics,
@@ -187,14 +242,27 @@ class ExperimentLogger:
             stage: Опциональное имя стадии.
         """
         stage_name = stage or "global"
-        metadata = {"step": step, "is_best": is_best, "stage": stage_name}
-        self.log_artifact(
-            path=path,
-            name=f"checkpoint-{step}",
-            artifact_type="model",
-            metadata=metadata,
+
+        # Локальная регистрация checkpoint
+        self._local_store.log_checkpoint(
+            run_id=self.run_id,
             stage=stage_name,
+            step=step,
+            path=path,
+            is_best=is_best,
         )
+
+        # Artifact для W&B
+        if self._wandb_initialized:
+            try:
+                import wandb
+
+                metadata = {"step": step, "is_best": is_best, "stage": stage_name}
+                artifact = wandb.Artifact(name=f"checkpoint-{step}", type="model", metadata=metadata)
+                artifact.add_file(str(path))
+                wandb.log_artifact(artifact)
+            except Exception:
+                pass  # Игнорируем ошибки W&B
 
     def update_config(self, updates: dict[str, Any]) -> None:
         """Обновить конфиг в W&B."""
