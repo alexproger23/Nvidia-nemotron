@@ -87,6 +87,23 @@ Reward pack должен описывать:
 - `verbosity_penalty`
 - `reasoning_style_bonus`
 
+### Metric config
+
+Metric pack должен быть отдельным доменом конфигов, как и reward pack.
+
+Metric pack описывает:
+
+- список metric-компонентов;
+- параметры для каждой metric-функции;
+- какие proxy-метрики нужно логировать по train rollout в W&B.
+
+Примеры metric-компонентов:
+
+- `nvidia_metric`
+- `answer_length`
+- `boxed_answer_rate`
+- `numeric_extractable_rate`
+
 ### Eval config
 
 Eval pack должен описывать:

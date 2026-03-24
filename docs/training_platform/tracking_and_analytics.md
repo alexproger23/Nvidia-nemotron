@@ -27,9 +27,11 @@
 - train loss;
 - eval loss;
 - reward curves;
+- custom metric curves;
 - длину ответов;
 - длину reasoning trace;
 - success rate по reward constraints;
+- proxy metrics по competition-style scorer;
 - таблицу итоговых eval-метрик;
 - ссылки на checkpoints и артефакты.
 

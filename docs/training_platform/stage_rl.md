@@ -19,6 +19,7 @@ Bootstrap-версия построена на `trl.GRPOTrainer` и исполь
 - `model` profile для base model и LoRA-параметров;
 - `data` profile для train split;
 - `reward` profile как список reward-компонентов;
+- `metric` profile как список metric-компонентов;
 - `tracking` profile для output root и режима логирования.
 
 Если `reward.components = []`, stage подставляет нулевой stub-reward.
@@ -39,6 +40,7 @@ Bootstrap-версия построена на `trl.GRPOTrainer` и исполь
 - `trainer_state.json`;
 - `dataset_summary.json`;
 - `reward_manifest.json`;
+- `metric_manifest.json`;
 - checkpoint artifact для следующей стадии.
 
 ## Reward pack
@@ -67,11 +69,24 @@ some_flag = true
 
 Инфраструктура уже поддерживает произвольное количество компонентов и отдельный вес для каждого, но project-specific reward-функции ещё не реализованы.
 
+## Metric pack
+
+Metric profile хранит:
+
+- список metric-компонентов;
+- параметры для каждой metric-функции;
+- имена метрик, которые должны логироваться в `GRPOTrainer` и W&B.
+
+Metric pack не участвует в оптимизации и не влияет на reward/advantages.
+Он нужен для proxy-мониторинга на тех же prompt/completion, которые уже генерирует RL stage.
+
 ## Что важно логировать
 
 - train metrics из `GRPOTrainer`;
 - число reward-компонентов;
+- число metric-компонентов;
 - флаг использования stub-reward;
+- curves вида `metrics/<name>/mean`, `metrics/<name>/std`, `metrics/<name>/coverage`;
 - источник checkpoint;
 - summary по train dataset.
 
