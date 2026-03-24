@@ -27,6 +27,12 @@
 - нужен `vllm`
 - для LoRA adapter используется `LoRARequest`
 - ориентир по запуску: Linux + GPU
+- есть отдельный CLI `python -m training.eval.cli` для прогона base model или checkpoint по validation split;
+- custom metric-компоненты из `training.metrics` теперь можно считать и в standalone eval, а не только внутри RL trainer;
+- для запуска на Kaggle из репозитория добавлены:
+  - `scripts/prepare_kaggle_validation_kernel.py`
+  - `scripts/submit_kaggle_validation.ps1`
+  - `kaggle/validation-kernel-config.json`
 
 ## Вывод
 
