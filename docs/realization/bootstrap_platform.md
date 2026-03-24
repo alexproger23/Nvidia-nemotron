@@ -10,6 +10,11 @@
   - [contracts.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\contracts.py)
   - [registry.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\registry.py)
   - [runner.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\runner.py)
+  - `eval/`
+    - [contracts.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\eval\contracts.py)
+    - [evaluator.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\eval\evaluator.py)
+    - [predictors.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\eval\predictors.py)
+    - [artifacts.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\training\eval\artifacts.py)
 - `src/competition`:
   - [cli.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\competition\cli.py)
   - [pipeline.py](c:\Users\Александр\gitprojects\NvidiaKaggle\src\competition\pipeline.py)
@@ -85,6 +90,6 @@ experiment = ConfigLoader().resolve(
 
 ## Что дальше
 
-- `src/training/stages/`
-- первая реальная стадия `baseline_eval`
+- stage-обертки поверх `training.eval`
+- реальный model-backed checkpoint eval
 - CLI для запуска recipe

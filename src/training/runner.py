@@ -13,19 +13,16 @@ class RecipeRunner:
         self.stage_registry = stage_registry or StageRegistry()
 
     def run(self, experiment: ResolvedExperiment, run_id: str) -> RunResult:
-        # Ранняя валидация: все стадии должны быть зарегистрированы
         self._validate_enabled_stages(experiment)
 
         results = RunResult(run_id=run_id)
         artifacts: dict[str, ArtifactRef] = {}
 
-        # Один logger на весь run
         logger = ExperimentLogger(experiment=experiment, run_id=run_id)
         logger.start()
 
         try:
             for stage_index, stage in enumerate(experiment.enabled_stages()):
-                # Регистрация старта стадии
                 logger._local_store.register_stage_start(
                     run_id=run_id,
                     stage_name=stage.name,
@@ -43,7 +40,7 @@ class RecipeRunner:
                     run_id=run_id,
                     output_dir=output_dir,
                     input_artifacts=dict(artifacts),
-                    logger=logger,  # Передаём один logger на все стадии
+                    logger=logger,
                 )
                 result = stage_impl.run(context)
                 results.stages[stage.name] = result
@@ -51,31 +48,30 @@ class RecipeRunner:
                 if result.checkpoint is not None:
                     artifacts["checkpoint"] = result.checkpoint
 
-                # Логирование итогов стадии с указанием имени стадии
                 logger.log(result.metrics, step=stage_index, stage=stage.name)
-
-                # Регистрация завершения стадии
                 logger._local_store.register_stage_finish(
                     run_id=run_id,
                     stage_name=stage.name,
                     status="completed",
                 )
-
         finally:
             logger.finish()
 
         return results
 
-    def _validate_enabled_stages(self, experiment: ResolvedExperiment) -> None:
-        """Проверить что все включённые стадии зарегистрированы."""
-        missing = []
-        for stage in experiment.enabled_stages():
-            if stage.name not in self.stage_registry._factories:
-                missing.append(stage.name)
-        if missing:
-            raise KeyError(f"Stages not registered: {', '.join(missing)}")
-
     def _stage_output_dir(self, experiment: ResolvedExperiment, run_id: str, stage_name: str) -> Path:
         root = Path(experiment.tracking.output_root)
         run_subdir = experiment.recipe.run.output_subdir or experiment.name
         return root / run_subdir / run_id / stage_name
+
+    def _validate_enabled_stages(self, experiment: ResolvedExperiment) -> None:
+        missing = [
+            stage.name
+            for stage in experiment.enabled_stages()
+            if not self.stage_registry.has(stage.name)
+        ]
+        if missing:
+            missing_text = ", ".join(missing)
+            raise NotImplementedError(
+                f"Recipe references stages without registered implementations: {missing_text}"
+            )
