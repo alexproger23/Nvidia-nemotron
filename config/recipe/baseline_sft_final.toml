@@ -4,7 +4,7 @@ description = "Bootstrap recipe for baseline_eval -> sft -> final_eval."
 [refs]
 model = "nemotron_lora_bootstrap"
 data = "reasoning_mixture_v1"
-tracking = "default_offline"
+tracking = "default_wandb"
 
 [run]
 seed = 42

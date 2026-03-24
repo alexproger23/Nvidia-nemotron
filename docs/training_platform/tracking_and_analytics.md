@@ -100,3 +100,23 @@
 - ссылку на `W&B` run
 
 Это позволит строить понятный lineage и сопоставлять ветки экспериментов между собой.
+
+## Статус текущей реализации
+
+Текущий merged slice покрывает базовую интеграцию:
+
+- `ExperimentLogger` для run-level логирования;
+- запись метрик в `W&B`;
+- локальную запись в `DuckDB` и `Parquet`;
+- таблицы `runs`, `metrics_timeseries`, `artifacts`.
+
+Этого достаточно, чтобы начать внедрение и не блокировать следующие стадии платформы, но это еще не финальный контракт из документа выше.
+
+## Backlog После Первого Merge
+
+- добавить локальные таблицы `run_tags`, `stages`, `metrics_summary`, `checkpoints`;
+- сохранять lineage-метаданные run: `parent_run_id`, `git commit`, `resolved config`, `seed`, список stage, ссылку на `W&B` run;
+- перевести запись в `Parquet` на append-oriented схему без полного перечитывания и перезаписи файла на каждое событие;
+- вернуть раннюю валидацию enabled stages в `RecipeRunner`;
+- привязать логирование checkpoints и артефактов из реальных stage-реализаций, а не только итоговых metrics;
+- начать использовать `log_interval_steps` как реальный throttle для частого train logging.

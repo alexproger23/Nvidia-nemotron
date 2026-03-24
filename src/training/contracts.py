@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from config.models import ResolvedExperiment, StageConfig
+
+if TYPE_CHECKING:
+    from training.tracking import ExperimentLogger
 
 
 @dataclass(slots=True)
@@ -24,6 +27,7 @@ class StageContext:
     output_dir: Path
     input_artifacts: dict[str, ArtifactRef] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+    logger: ExperimentLogger | None = None
 
 
 @dataclass(slots=True)
