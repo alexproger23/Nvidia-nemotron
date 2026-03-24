@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from pathlib import Path
-from typing import Any
 
 from config.models import DataProfile
 from training.data import ReasoningExample, summarize_reasoning_profile
@@ -12,6 +11,8 @@ from training.eval.contracts import (
     CheckpointPredictor,
     CheckpointRef,
 )
+from training.eval.metrics import compute_prediction_metrics
+from training.metrics import MetricStack
 
 
 class CheckpointEvaluator:
@@ -27,6 +28,7 @@ class CheckpointEvaluator:
         project_root: str | Path | None = None,
         max_samples: int | None = None,
         seed: int = 42,
+        metric_stack: MetricStack | None = None,
     ) -> CheckpointEvalResult:
         eval_examples = _sample_examples(examples, max_samples=max_samples, seed=seed)
         predictions = self.predictor.predict_many(checkpoint, eval_examples)
@@ -38,7 +40,11 @@ class CheckpointEvaluator:
             if data_profile is not None
             else {}
         )
-        metrics = _compute_metrics(predictions, sampled_examples=len(eval_examples))
+        metrics = compute_prediction_metrics(
+            predictions,
+            sampled_examples=len(eval_examples),
+            metric_stack=metric_stack,
+        )
 
         return CheckpointEvalResult(
             checkpoint=checkpoint,
@@ -60,31 +66,6 @@ def _sample_examples(
     return random.Random(seed).sample(examples, k=max_samples)
 
 
-def _compute_metrics(
-    predictions: list[CheckpointPrediction],
-    *,
-    sampled_examples: int,
-) -> dict[str, Any]:
-    exact_matches = 0
-    non_empty_predictions = 0
-
-    for prediction in predictions:
-        normalized_prediction = _normalize_text(prediction.prediction)
-        normalized_target = _normalize_text(prediction.target_answer)
-        if normalized_prediction:
-            non_empty_predictions += 1
-        if normalized_target is not None and normalized_prediction == normalized_target:
-            exact_matches += 1
-
-    total = len(predictions)
-    return {
-        "evaluated_examples": total,
-        "sampled_examples": sampled_examples,
-        "exact_match": round(exact_matches / total, 6) if total else 0.0,
-        "non_empty_prediction_rate": round(non_empty_predictions / total, 6) if total else 0.0,
-    }
-
-
 def _dataset_summary_payload(data_profile: DataProfile, *, project_root: Path) -> dict[str, Any]:
     summaries = summarize_reasoning_profile(data_profile, project_root=project_root)
     return {
@@ -102,9 +83,3 @@ def _dataset_summary_payload(data_profile: DataProfile, *, project_root: Path) -
         ]
         for split, split_summaries in summaries.items()
     }
-
-
-def _normalize_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    return value.strip().lower()
