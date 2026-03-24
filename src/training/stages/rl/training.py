@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-from config.models import RewardProfile, RlStageConfig
+from config.models import RlStageConfig
 from training.contracts import StageContext
+from training.metrics import MetricStack
 from training.rewards import RewardStack
 
 from .common import multi_objective_aggregation, project_root, scale_rewards
@@ -17,12 +18,13 @@ def run_grpo_training(
     *,
     context: StageContext,
     config: RlStageConfig,
-    reward_profile: RewardProfile | None,
     reward_stack: RewardStack,
+    metric_stack: MetricStack,
     train_examples: list[Any],
 ) -> dict[str, Any]:
     try:
         import torch
+        from accelerate.utils import gather
         from datasets import Dataset
         from peft import AutoPeftModelForCausalLM, LoraConfig, TaskType
         from transformers import AutoTokenizer
@@ -77,6 +79,64 @@ def run_grpo_training(
             target_modules=list(context.experiment.model.adapter.target_modules),
         )
 
+    class MetricAwareGRPOTrainer(GRPOTrainer):
+        def __init__(self, *args: Any, metric_stack: MetricStack, **kwargs: Any) -> None:
+            self.metric_stack = metric_stack
+            self.metric_funcs = list(metric_stack.functions)
+            self.metric_names = list(metric_stack.component_names)
+            super().__init__(*args, **kwargs)
+
+        def _calculate_rewards(self, inputs, prompts, completions, completion_ids_list):
+            rewards_per_func = super()._calculate_rewards(inputs, prompts, completions, completion_ids_list)
+            self._log_custom_metrics(inputs, prompts, completions, completion_ids_list)
+            return rewards_per_func
+
+        def _log_custom_metrics(self, inputs, prompts, completions, completion_ids_list) -> None:
+            if not self.metric_funcs:
+                return
+
+            mode = "train" if self.model.training else "eval"
+            device = self.accelerator.device
+            metrics_per_func = torch.full(
+                (len(prompts), len(self.metric_funcs)),
+                torch.nan,
+                dtype=torch.float32,
+                device=device,
+            )
+
+            keys = [key for key in inputs[0] if key not in ["prompt", "completion", "completion_ids"]]
+            metric_kwargs = {key: [example[key] for example in inputs] for key in keys}
+            metric_kwargs["trainer_state"] = self.state
+
+            for index, (metric_func, metric_name) in enumerate(zip(self.metric_funcs, self.metric_names, strict=True)):
+                values = metric_func(
+                    prompts=prompts,
+                    completions=completions,
+                    completion_ids=completion_ids_list,
+                    **metric_kwargs,
+                )
+                if len(values) != len(prompts):
+                    raise ValueError(
+                        f"Metric '{metric_name}' returned {len(values)} values for {len(prompts)} completions."
+                    )
+
+                normalized = [torch.nan if value is None else float(value) for value in values]
+                metrics_per_func[:, index] = torch.tensor(normalized, dtype=torch.float32, device=device)
+
+            metrics_per_func = gather(metrics_per_func)
+            for index, metric_name in enumerate(self.metric_names):
+                values = metrics_per_func[:, index]
+                valid_mask = ~torch.isnan(values)
+                self._metrics[mode][f"metrics/{metric_name}/coverage"].append(valid_mask.float().mean().item())
+
+                if not valid_mask.any():
+                    continue
+
+                valid_values = values[valid_mask]
+                self._metrics[mode][f"metrics/{metric_name}/mean"].append(valid_values.mean().item())
+                std_value = valid_values.std(unbiased=False).item() if valid_values.numel() > 1 else 0.0
+                self._metrics[mode][f"metrics/{metric_name}/std"].append(std_value)
+
     training_args = GRPOConfig(
         output_dir=str(trainer_output_dir),
         run_name=f"{context.run_id}:{context.stage_name}",
@@ -108,19 +168,20 @@ def run_grpo_training(
         num_iterations=config.num_iterations,
         epsilon=config.epsilon,
         reward_weights=list(reward_stack.weights),
-        scale_rewards=scale_rewards(config, reward_profile),
-        multi_objective_aggregation=multi_objective_aggregation(config, reward_profile),
+        scale_rewards=scale_rewards(config, context.experiment.reward),
+        multi_objective_aggregation=multi_objective_aggregation(config, context.experiment.reward),
         log_completions=config.log_completions,
         model_init_kwargs=model_init_kwargs(torch, context),
     )
 
-    trainer = GRPOTrainer(
+    trainer = MetricAwareGRPOTrainer(
         model=model_arg,
         reward_funcs=list(reward_stack.functions),
         args=training_args,
         train_dataset=train_dataset,
         processing_class=tokenizer,
         peft_config=peft_config,
+        metric_stack=metric_stack,
     )
 
     configure_wandb_env(context)
@@ -131,6 +192,7 @@ def run_grpo_training(
     metrics = dict(train_result.metrics)
     metrics.setdefault("train_samples", len(train_examples))
     metrics.setdefault("reward_component_count", len(reward_stack.component_names))
+    metrics.setdefault("metric_component_count", len(metric_stack.component_names))
     metrics.setdefault("uses_stub_reward", reward_stack.uses_stub)
 
     return {

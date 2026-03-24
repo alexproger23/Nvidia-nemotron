@@ -1,9 +1,10 @@
 name = "rl_bootstrap"
-description = "Bootstrap recipe for standalone RL with GRPO and modular reward packs."
+description = "Bootstrap recipe for standalone RL with GRPO and modular reward and metric packs."
 
 [refs]
 model = "nemotron_lora_bootstrap"
 data = "reasoning_mixture_v1"
+metric = "nvidia_proxy_v1"
 reward = "rl_stub_v1"
 tracking = "default_offline"
 
@@ -11,7 +12,7 @@ tracking = "default_offline"
 seed = 42
 output_subdir = "rl_bootstrap"
 tags = ["bootstrap", "rl", "grpo"]
-notes = "Standalone RL stage starting from base_model with a stub reward pack."
+notes = "Standalone RL stage starting from base_model with a stub reward pack and NVIDIA-style proxy metric."
 
 [stages.rl]
 enabled = true

@@ -1,0 +1,4 @@
+name = "nvidia_proxy_v1"
+
+[[components]]
+name = "nvidia_metric"

@@ -95,6 +95,18 @@ class RewardProfile:
 
 
 @dataclass(slots=True)
+class MetricComponentConfig:
+    name: str
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class MetricProfile:
+    name: str
+    components: tuple[MetricComponentConfig, ...] = ()
+
+
+@dataclass(slots=True)
 class SftStageConfig(StageBaseConfig):
     learning_rate: float = 2e-4
     epochs: float = 1.0
@@ -185,6 +197,7 @@ class ResolvedExperiment:
     tracking: TrackingProfile
     data: DataProfile | None = None
     reward: RewardProfile | None = None
+    metric: MetricProfile | None = None
     source_files: dict[str, Path] = field(default_factory=dict)
 
     @property

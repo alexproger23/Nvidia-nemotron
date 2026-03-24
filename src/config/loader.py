@@ -73,6 +73,14 @@ class ConfigLoader:
         if "data" in recipe.refs:
             data = self.registry.parse_domain("data", recipe.refs["data"], self._mapping_from(composite_raw, "data"))
 
+        metric = None
+        if "metric" in recipe.refs:
+            metric = self.registry.parse_domain(
+                "metric",
+                recipe.refs["metric"],
+                self._mapping_from(composite_raw, "metric"),
+            )
+
         reward = None
         if "reward" in recipe.refs:
             reward = self.registry.parse_domain(
@@ -86,6 +94,7 @@ class ConfigLoader:
             model=model,
             tracking=tracking,
             data=data,
+            metric=metric,
             reward=reward,
             source_files=source_files,
         )

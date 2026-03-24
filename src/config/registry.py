@@ -10,6 +10,8 @@ from config.models import (
     CheckpointEvalStageConfig,
     DataProfile,
     DataSourceConfig,
+    MetricComponentConfig,
+    MetricProfile,
     ModelProfile,
     RewardComponentConfig,
     RewardProfile,
@@ -66,6 +68,7 @@ def build_default_registry() -> ConfigRegistry:
     registry = ConfigRegistry()
     registry.register_domain("model", "model", parse_model_profile)
     registry.register_domain("data", "data", parse_data_profile)
+    registry.register_domain("metric", "metric", parse_metric_profile)
     registry.register_domain("reward", "reward", parse_reward_profile)
     registry.register_domain("tracking", "tracking", parse_tracking_profile)
 
@@ -177,6 +180,15 @@ def parse_reward_profile(profile_name: str, raw: Mapping[str, Any]) -> RewardPro
         scale_rewards=parse_scale_rewards(raw, "scale_rewards", context),
         multi_objective_aggregation=optional_str(raw, "multi_objective_aggregation", context)
         or "sum_then_normalize",
+    )
+
+
+def parse_metric_profile(profile_name: str, raw: Mapping[str, Any]) -> MetricProfile:
+    context = f"metric:{profile_name}"
+    reject_unknown_keys(raw, {"name", "components"}, context)
+    return MetricProfile(
+        name=optional_str(raw, "name", context) or profile_name,
+        components=parse_metric_component_list(raw, "components", context),
     )
 
 
@@ -430,6 +442,27 @@ def parse_reward_component(raw: Mapping[str, Any], context: str) -> RewardCompon
     return RewardComponentConfig(
         name=required_str(raw, "name", context),
         weight=float(weight),
+        params=dict(params),
+    )
+
+
+def parse_metric_component_list(raw: Mapping[str, Any], key: str, context: str) -> tuple[MetricComponentConfig, ...]:
+    values = raw.get(key, ())
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ConfigValidationError(context, f"'{key}' must be an array of tables")
+
+    items: list[MetricComponentConfig] = []
+    for index, value in enumerate(values):
+        component_raw = expect_mapping(value, f"{context}.{key}[{index}]")
+        items.append(parse_metric_component(component_raw, f"{context}.{key}[{index}]"))
+    return tuple(items)
+
+
+def parse_metric_component(raw: Mapping[str, Any], context: str) -> MetricComponentConfig:
+    reject_unknown_keys(raw, {"name", "params"}, context)
+    params = optional_mapping(raw, "params", context)
+    return MetricComponentConfig(
+        name=required_str(raw, "name", context),
         params=dict(params),
     )
 

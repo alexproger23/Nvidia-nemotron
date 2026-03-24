@@ -2,6 +2,8 @@ from config.loader import ConfigLoader
 from config.models import (
     CheckpointEvalStageConfig,
     DataProfile,
+    MetricComponentConfig,
+    MetricProfile,
     ModelProfile,
     RecipeConfig,
     ResolvedExperiment,
@@ -20,6 +22,8 @@ __all__ = [
     "ConfigLoader",
     "ConfigRegistry",
     "DataProfile",
+    "MetricComponentConfig",
+    "MetricProfile",
     "ModelProfile",
     "RecipeConfig",
     "ResolvedExperiment",
