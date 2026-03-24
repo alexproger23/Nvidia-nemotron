@@ -2,49 +2,82 @@
 
 ## Назначение
 
-`rl` нужна для улучшения reasoning-поведения поверх уже сильного SFT checkpoint. Это не стартовая стадия, а следующий слой оптимизации после стабильного adapter baseline.
+`rl` отвечает за reward-driven дообучение модели через `GRPO`.
 
-## Позиция в плане
+Стадия может запускаться:
 
-RL не должен появляться раньше, чем:
+- поверх `base_model`, если нужен самостоятельный RL-эксперимент без SFT;
+- поверх входного checkpoint-артефакта, если перед этим уже была другая training stage;
+- поверх явного локального пути к checkpoint.
 
-1. зафиксирован сильный baseline eval;
-2. получен стабильный SFT checkpoint;
-3. определен понятный reward pack;
-4. есть единый eval suite для проверки, что RL реально помогает.
+`rl` не зависит от `sft` на уровне контракта recipe и может использоваться как самодостаточная стадия.
+
+## Текущая реализация
+
+Bootstrap-версия построена на `trl.GRPOTrainer` и использует:
+
+- `model` profile для base model и LoRA-параметров;
+- `data` profile для train split;
+- `reward` profile как список reward-компонентов;
+- `tracking` profile для output root и режима логирования.
+
+Если `reward.components = []`, stage подставляет нулевой stub-reward.
+Это позволяет собрать и прогнать RL pipeline до появления реальных reward-функций.
 
 ## Входы
 
-- checkpoint после `sft`;
-- reward config;
-- data config для RL samples;
-- train config для RL;
-- runtime config;
+- checkpoint source: `base_model`, artifact key или локальный путь;
+- reward profile;
+- data profile;
+- RL train config из `recipe.stages.rl`;
 - tracking config.
 
 ## Выходы
 
 - RL checkpoint;
-- reward summary;
-- ограничения и штрафы, которые реально срабатывали;
-- логи деградаций или нестабильностей;
-- артефакт для `final_eval`.
+- `metrics_summary.json`;
+- `trainer_state.json`;
+- `dataset_summary.json`;
+- `reward_manifest.json`;
+- checkpoint artifact для следующей стадии.
+
+## Reward pack
+
+Reward profile хранит:
+
+- список компонентов;
+- веса компонентов;
+- режим `scale_rewards`;
+- режим `multi_objective_aggregation`.
+
+Пример:
+
+```toml
+name = "some_reward_pack"
+scale_rewards = "none"
+multi_objective_aggregation = "sum_then_normalize"
+
+[[components]]
+name = "format_valid"
+weight = 1.0
+
+[components.params]
+some_flag = true
+```
+
+Инфраструктура уже поддерживает произвольное количество компонентов и отдельный вес для каждого, но project-specific reward-функции ещё не реализованы.
 
 ## Что важно логировать
 
-- общий reward;
-- reward по компонентам;
-- долю валидных ответов;
-- длину reasoning trace;
-- частоту нарушения hard constraints;
-- KL или аналог регуляризации, если он используется;
-- сравнение с parent SFT checkpoint.
+- train metrics из `GRPOTrainer`;
+- число reward-компонентов;
+- флаг использования stub-reward;
+- источник checkpoint;
+- summary по train dataset.
 
-## Что хотим видеть в результате
+## Что должно быть понятно после стадии
 
-После этой стадии должно быть понятно:
-
-- помогает ли reward pack на практике;
-- не ломает ли RL уже достигнутый SFT baseline;
-- какие reward-компоненты полезны, а какие вносят шум;
-- есть ли смысл масштабировать RL дальше.
+- можно ли запускать RL независимо от SFT;
+- какой reward pack реально использовался;
+- из какого checkpoint стартовало обучение;
+- какие артефакты нужно передать дальше в eval/export.
