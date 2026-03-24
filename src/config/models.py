@@ -80,6 +80,21 @@ class StageBaseConfig:
 
 
 @dataclass(slots=True)
+class RewardComponentConfig:
+    name: str
+    weight: float = 1.0
+    params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class RewardProfile:
+    name: str
+    components: tuple[RewardComponentConfig, ...] = ()
+    scale_rewards: str = "none"
+    multi_objective_aggregation: str = "sum_then_normalize"
+
+
+@dataclass(slots=True)
 class SftStageConfig(StageBaseConfig):
     learning_rate: float = 2e-4
     epochs: float = 1.0
@@ -91,6 +106,39 @@ class SftStageConfig(StageBaseConfig):
     eval_steps: int = 100
     train_split: str = "train"
     validation_split: str = "validation"
+
+
+@dataclass(slots=True)
+class RlStageConfig(StageBaseConfig):
+    checkpoint_source: str = "base_model"
+    learning_rate: float = 1e-6
+    epochs: float = 1.0
+    max_steps: int | None = None
+    per_device_batch_size: int = 1
+    gradient_accumulation_steps: int = 1
+    max_train_samples: int | None = None
+    save_steps: int = 50
+    logging_steps: int = 10
+    warmup_ratio: float = 0.0
+    max_grad_norm: float = 1.0
+    num_generations: int = 4
+    max_completion_length: int = 512
+    temperature: float = 1.0
+    top_p: float = 1.0
+    top_k: int = 0
+    beta: float = 0.0
+    num_iterations: int = 1
+    epsilon: float = 0.2
+    use_vllm: bool = False
+    vllm_mode: str = "colocate"
+    vllm_gpu_memory_utilization: float = 0.3
+    vllm_tensor_parallel_size: int = 1
+    log_completions: bool = False
+    shuffle_dataset: bool = True
+    gradient_checkpointing: bool = True
+    bf16: bool = True
+    scale_rewards: str | bool = "none"
+    multi_objective_aggregation: str = "sum_then_normalize"
 
 
 @dataclass(slots=True)
@@ -106,7 +154,7 @@ class CheckpointEvalStageConfig(StageBaseConfig):
     max_new_tokens: int = 2048
 
 
-StageConfig = CheckpointEvalStageConfig | SftStageConfig
+StageConfig = CheckpointEvalStageConfig | RlStageConfig | SftStageConfig
 
 
 @dataclass(slots=True)
@@ -136,6 +184,7 @@ class ResolvedExperiment:
     model: ModelProfile
     tracking: TrackingProfile
     data: DataProfile | None = None
+    reward: RewardProfile | None = None
     source_files: dict[str, Path] = field(default_factory=dict)
 
     @property

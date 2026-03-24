@@ -4,12 +4,12 @@ from pathlib import Path
 
 from config.models import ResolvedExperiment
 from training.contracts import ArtifactRef, RunResult, StageContext
-from training.registry import StageRegistry
+from training.registry import StageRegistry, build_default_stage_registry
 
 
 class RecipeRunner:
     def __init__(self, stage_registry: StageRegistry | None = None) -> None:
-        self.stage_registry = stage_registry or StageRegistry()
+        self.stage_registry = stage_registry or build_default_stage_registry()
 
     def run(self, experiment: ResolvedExperiment, run_id: str) -> RunResult:
         self._validate_enabled_stages(experiment)

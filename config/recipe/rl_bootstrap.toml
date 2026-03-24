@@ -1,0 +1,43 @@
+name = "rl_bootstrap"
+description = "Bootstrap recipe for standalone RL with GRPO and modular reward packs."
+
+[refs]
+model = "nemotron_lora_bootstrap"
+data = "reasoning_mixture_v1"
+reward = "rl_stub_v1"
+tracking = "default_offline"
+
+[run]
+seed = 42
+output_subdir = "rl_bootstrap"
+tags = ["bootstrap", "rl", "grpo"]
+notes = "Standalone RL stage starting from base_model with a stub reward pack."
+
+[stages.rl]
+enabled = true
+checkpoint_source = "base_model"
+learning_rate = 0.000001
+epochs = 1.0
+per_device_batch_size = 1
+gradient_accumulation_steps = 8
+max_train_samples = 512
+save_steps = 50
+logging_steps = 10
+warmup_ratio = 0.03
+max_grad_norm = 1.0
+num_generations = 4
+max_completion_length = 512
+temperature = 1.0
+top_p = 1.0
+top_k = 0
+beta = 0.0
+num_iterations = 1
+epsilon = 0.2
+use_vllm = false
+vllm_mode = "colocate"
+vllm_gpu_memory_utilization = 0.3
+vllm_tensor_parallel_size = 1
+log_completions = false
+shuffle_dataset = true
+gradient_checkpointing = true
+bf16 = true

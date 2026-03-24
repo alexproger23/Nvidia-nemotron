@@ -15,8 +15,10 @@ from training.eval import (
     checkpoint_from_model_profile,
     write_checkpoint_eval_artifacts,
 )
-from training.registry import StageRegistry
+from training.registry import StageRegistry, build_default_stage_registry
+from training.rewards import RewardRegistry, RewardStack, build_default_reward_registry, build_reward_stack
 from training.runner import RecipeRunner
+from training.stages import RlStage
 
 __all__ = [
     "ArtifactRef",
@@ -26,12 +28,18 @@ __all__ = [
     "CheckpointPredictor",
     "CheckpointRef",
     "RecipeRunner",
+    "RewardRegistry",
+    "RewardStack",
+    "RlStage",
     "RunResult",
     "Stage",
     "StageContext",
     "StageRegistry",
     "StageResult",
     "VllmCheckpointPredictor",
+    "build_default_reward_registry",
+    "build_default_stage_registry",
+    "build_reward_stack",
     "checkpoint_from_model_profile",
     "write_checkpoint_eval_artifacts",
 ]

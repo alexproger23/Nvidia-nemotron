@@ -1,1 +1,7 @@
 kaggle>=1.7.4.5
+accelerate
+datasets
+peft
+torch
+transformers
+trl

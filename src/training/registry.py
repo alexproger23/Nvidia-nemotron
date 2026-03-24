@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from training.contracts import Stage
+from training.stages import RlStage
 
 StageFactory = Callable[[], Stage]
 
@@ -22,3 +23,9 @@ class StageRegistry:
             return self._factories[stage_name]()
         except KeyError as exc:
             raise KeyError(f"Stage '{stage_name}' is not registered") from exc
+
+
+def build_default_stage_registry() -> StageRegistry:
+    registry = StageRegistry()
+    registry.register("rl", RlStage)
+    return registry

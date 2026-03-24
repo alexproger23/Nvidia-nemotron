@@ -11,6 +11,9 @@ from config.models import (
     DataProfile,
     DataSourceConfig,
     ModelProfile,
+    RewardComponentConfig,
+    RewardProfile,
+    RlStageConfig,
     RunConfig,
     SftStageConfig,
     StageConfig,
@@ -63,9 +66,11 @@ def build_default_registry() -> ConfigRegistry:
     registry = ConfigRegistry()
     registry.register_domain("model", "model", parse_model_profile)
     registry.register_domain("data", "data", parse_data_profile)
+    registry.register_domain("reward", "reward", parse_reward_profile)
     registry.register_domain("tracking", "tracking", parse_tracking_profile)
 
     registry.register_stage("baseline_eval", parse_baseline_eval_stage)
+    registry.register_stage("rl", parse_rl_stage)
     registry.register_stage("sft", parse_sft_stage)
     registry.register_stage("final_eval", parse_final_eval_stage)
     return registry
@@ -159,6 +164,22 @@ def parse_tracking_profile(profile_name: str, raw: Mapping[str, Any]) -> Trackin
     )
 
 
+def parse_reward_profile(profile_name: str, raw: Mapping[str, Any]) -> RewardProfile:
+    context = f"reward:{profile_name}"
+    reject_unknown_keys(
+        raw,
+        {"name", "components", "scale_rewards", "multi_objective_aggregation"},
+        context,
+    )
+    return RewardProfile(
+        name=optional_str(raw, "name", context) or profile_name,
+        components=parse_reward_component_list(raw, "components", context),
+        scale_rewards=parse_scale_rewards(raw, "scale_rewards", context),
+        multi_objective_aggregation=optional_str(raw, "multi_objective_aggregation", context)
+        or "sum_then_normalize",
+    )
+
+
 def parse_baseline_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> CheckpointEvalStageConfig:
     return parse_checkpoint_eval_stage(
         stage_name,
@@ -248,6 +269,82 @@ def parse_sft_stage(stage_name: str, raw: Mapping[str, Any]) -> SftStageConfig:
     )
 
 
+def parse_rl_stage(stage_name: str, raw: Mapping[str, Any]) -> RlStageConfig:
+    context = f"recipe.stages.{stage_name}"
+    reject_unknown_keys(
+        raw,
+        {
+            "enabled",
+            "depends_on",
+            "tags",
+            "notes",
+            "checkpoint_source",
+            "learning_rate",
+            "epochs",
+            "max_steps",
+            "per_device_batch_size",
+            "gradient_accumulation_steps",
+            "max_train_samples",
+            "save_steps",
+            "logging_steps",
+            "warmup_ratio",
+            "max_grad_norm",
+            "num_generations",
+            "max_completion_length",
+            "temperature",
+            "top_p",
+            "top_k",
+            "beta",
+            "num_iterations",
+            "epsilon",
+            "use_vllm",
+            "vllm_mode",
+            "vllm_gpu_memory_utilization",
+            "vllm_tensor_parallel_size",
+            "log_completions",
+            "shuffle_dataset",
+            "gradient_checkpointing",
+            "bf16",
+            "scale_rewards",
+            "multi_objective_aggregation",
+        },
+        context,
+    )
+    return RlStageConfig(
+        **parse_stage_base_fields(raw, context),
+        checkpoint_source=optional_str(raw, "checkpoint_source", context) or "base_model",
+        learning_rate=optional_float(raw, "learning_rate", context, 1e-6),
+        epochs=optional_float(raw, "epochs", context, 1.0),
+        max_steps=optional_int(raw, "max_steps", context),
+        per_device_batch_size=optional_int(raw, "per_device_batch_size", context) or 1,
+        gradient_accumulation_steps=optional_int(raw, "gradient_accumulation_steps", context) or 1,
+        max_train_samples=optional_int(raw, "max_train_samples", context),
+        save_steps=optional_int(raw, "save_steps", context) or 50,
+        logging_steps=optional_int(raw, "logging_steps", context) or 10,
+        warmup_ratio=optional_float(raw, "warmup_ratio", context, 0.0),
+        max_grad_norm=optional_float(raw, "max_grad_norm", context, 1.0),
+        num_generations=optional_int(raw, "num_generations", context) or 4,
+        max_completion_length=optional_int(raw, "max_completion_length", context) or 512,
+        temperature=optional_float(raw, "temperature", context, 1.0),
+        top_p=optional_float(raw, "top_p", context, 1.0),
+        top_k=optional_int(raw, "top_k", context) or 0,
+        beta=optional_float(raw, "beta", context, 0.0),
+        num_iterations=optional_int(raw, "num_iterations", context) or 1,
+        epsilon=optional_float(raw, "epsilon", context, 0.2),
+        use_vllm=optional_bool(raw, "use_vllm", context, False),
+        vllm_mode=optional_str(raw, "vllm_mode", context) or "colocate",
+        vllm_gpu_memory_utilization=optional_float(raw, "vllm_gpu_memory_utilization", context, 0.3),
+        vllm_tensor_parallel_size=optional_int(raw, "vllm_tensor_parallel_size", context) or 1,
+        log_completions=optional_bool(raw, "log_completions", context, False),
+        shuffle_dataset=optional_bool(raw, "shuffle_dataset", context, True),
+        gradient_checkpointing=optional_bool(raw, "gradient_checkpointing", context, True),
+        bf16=optional_bool(raw, "bf16", context, True),
+        scale_rewards=parse_scale_rewards(raw, "scale_rewards", context),
+        multi_objective_aggregation=optional_str(raw, "multi_objective_aggregation", context)
+        or "sum_then_normalize",
+    )
+
+
 def parse_final_eval_stage(stage_name: str, raw: Mapping[str, Any]) -> CheckpointEvalStageConfig:
     return parse_checkpoint_eval_stage(
         stage_name,
@@ -309,6 +406,41 @@ def parse_data_source(raw: Mapping[str, Any], context: str) -> DataSourceConfig:
         prompt_field=optional_str(raw, "prompt_field", context),
         answer_field=optional_str(raw, "answer_field", context),
     )
+
+
+def parse_reward_component_list(raw: Mapping[str, Any], key: str, context: str) -> tuple[RewardComponentConfig, ...]:
+    values = raw.get(key, ())
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+        raise ConfigValidationError(context, f"'{key}' must be an array of tables")
+
+    items: list[RewardComponentConfig] = []
+    for index, value in enumerate(values):
+        component_raw = expect_mapping(value, f"{context}.{key}[{index}]")
+        items.append(parse_reward_component(component_raw, f"{context}.{key}[{index}]"))
+    return tuple(items)
+
+
+def parse_reward_component(raw: Mapping[str, Any], context: str) -> RewardComponentConfig:
+    reject_unknown_keys(raw, {"name", "weight", "params"}, context)
+    weight = raw.get("weight", 1.0)
+    if isinstance(weight, bool) or not isinstance(weight, (int, float)):
+        raise ConfigValidationError(context, "'weight' must be a float")
+
+    params = optional_mapping(raw, "params", context)
+    return RewardComponentConfig(
+        name=required_str(raw, "name", context),
+        weight=float(weight),
+        params=dict(params),
+    )
+
+
+def parse_scale_rewards(raw: Mapping[str, Any], key: str, context: str) -> str | bool:
+    value = raw.get(key, "none")
+    if isinstance(value, bool):
+        return value
+    if not isinstance(value, str):
+        raise ConfigValidationError(context, f"'{key}' must be a string or boolean")
+    return value
 
 
 def expect_mapping(raw: Any, context: str) -> Mapping[str, Any]:

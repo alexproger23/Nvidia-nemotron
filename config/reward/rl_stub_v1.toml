@@ -1,0 +1,7 @@
+name = "rl_stub_v1"
+scale_rewards = "none"
+multi_objective_aggregation = "sum_then_normalize"
+
+# Empty pack is allowed while the RL pipeline is being bootstrapped.
+# The stage will inject a zero-valued stub reward so GRPO can still be wired end-to-end.
+components = []
